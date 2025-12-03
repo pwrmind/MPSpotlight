@@ -49,29 +49,64 @@ async function saveModelWeights() {
 /**
  * Функция дообучения модели Brain.js
  */
+/**
+ * Функция дообучения модели Brain.js на собранных данных с балансировкой
+ */
 async function retrainModel() {
     if (sessionData.length === 0) return;
 
-    const trainingData = sessionData.map(item => {
+    let positiveExamples = [];
+    let negativeExamples = [];
+
+    // Разделяем примеры на положительные и отрицательные
+    sessionData.forEach(item => {
+        // --- ФОРМИРОВАНИЕ ВХОДНОГО ВЕКТОРА ПРЯМО ЗДЕСЬ ---
         const input = [
-            item.price / 100000,
-            item.rating / 5,
-            item.position / 100,
+            item.price / 100000, // Нормализация цены
+            item.rating / 5,     // Нормализация рейтинга
+            item.position / 100, // Нормализация позиции
             item.isSponsored ? 1 : 0,
-            item.wasViewed // Признак того, что смотрели ранее
+            item.wasViewed       // Признак того, что смотрели ранее
         ];
+        // --------------------------------------------------
+
         const output = clickedProductIds.has(item.id) ? 1 : 0;
-        
-        return { input, output: [output] };
+        const trainingExample = { input, output: [output] };
+
+        if (output === 1) {
+            positiveExamples.push(trainingExample);
+        } else {
+            negativeExamples.push(trainingExample);
+        }
     });
 
-    console.log(`Начало дообучения на ${trainingData.length} примерах...`);
+    // === ЛОГИКА НЕДОСЕМПЛИРОВАНИЯ ===
+    // Мы хотим, чтобы количество отрицательных примеров было не сильно больше положительных.
+    const maxNegativeSamples = positiveExamples.length * 2; // Например, в 5 раз больше кликов
+    
+    let balancedNegativeExamples = [];
+    if (negativeExamples.length > maxNegativeSamples) {
+        // Перемешиваем и выбираем только нужное количество случайных примеров
+        const shuffledNegatives = negativeExamples.sort(() => 0.5 - Math.random());
+        balancedNegativeExamples = shuffledNegatives.slice(0, maxNegativeSamples);
+    } else {
+        balancedNegativeExamples = negativeExamples;
+    }
+    // ==================================
+
+    // Объединяем сбалансированные данные
+    const trainingData = [...positiveExamples, ...balancedNegativeExamples];
+
+    // Перемешиваем итоговый набор, чтобы обучение шло эффективнее
+    trainingData.sort(() => 0.5 - Math.random());
+    
+    console.log(`Начало дообучения. Положительных: ${positiveExamples.length}, Отрицательных (сбалансировано): ${balancedNegativeExamples.length}`);
+
     net.train(trainingData, {
-        iterations: 1000,
+        iterations: 1000, 
         log: true,
         errorThresh: 0.005
     });
-    console.log("Дообучение завершено.");
 
     await saveModelWeights();
     sessionData = [];

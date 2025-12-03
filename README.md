@@ -1,4 +1,4 @@
-# Duck‑AI Click‑Predictor Chrome Extension  
+# Click‑Predictor Chrome Extension  
 
 A lightweight Chrome/Edge extension that predicts the probability that a user will click on a product card on a marketplace (Wildberries, Ozon, etc.) and highlights the most interesting items in‑page.  
 It runs **entirely in the browser** using **Brain.js** (a neural‑network library) and stores the model locally, so no data ever leaves the user’s device.
